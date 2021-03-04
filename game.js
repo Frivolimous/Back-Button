@@ -18,6 +18,7 @@ function initGame() {
   let back = new PIXI.Graphics();
   back.beginFill(0x00ccff).drawRect(0, 0, appRect.width, appRect.height);
   back.interactive = true;
+  back.addListener("pointermove", onMoveOut);
 
   // create grass
   let floor = new PIXI.Graphics();
@@ -71,6 +72,13 @@ let transition = () => {
   .chain(overlay, 500).wait(500).to({alpha: 0}).easing(Easing.Quadratic.In);
 }
 
+let onMoveOut = (e) => {
+  let mousePos = e.data.getLocalPosition(app.stage);
+  if (button) {
+    button.onOut(mousePos);
+  }
+}
+
 class Button1 extends PIXI.Container {
   display; // graphic that is shown;
   display2;
@@ -100,10 +108,8 @@ class Button1 extends PIXI.Container {
     this.display2.interactive = true;
     this.display.addListener("pointerdown", this.onDown);
     this.display.addListener("pointerup", this.onUp);
-    this.display.addListener("pointerout", this.onOut);
     this.display2.addListener("pointerdown", this.onDown);
     this.display2.addListener("pointerup", this.onUp);
-    this.display2.addListener("pointerout", this.onOut);
   }
 
   makeSquare(color1, color2) {
@@ -162,7 +168,9 @@ class Button1 extends PIXI.Container {
     }
   }
 
-  onOut = () => {
+  onOut = (e) => {
+    if (e.x > this.x && e.x < this.x + 50 && e.y > this.y && e.y < this.y + 50) return;
+    
     if (this.downOnThis) {
       this.downOnThis = false;
 
@@ -234,7 +242,6 @@ class Button2 extends PIXI.Container {
     this.HIT_AREA.interactive = true;
     this.HIT_AREA.addListener("pointerdown", this.onDown);
     this.HIT_AREA.addListener("pointerup", this.onUp);
-    this.HIT_AREA.addListener("pointerout", this.onOut);
     this.HIT_AREA.addListener("pointermove", this.onMove);
   }
 
@@ -285,7 +292,9 @@ class Button2 extends PIXI.Container {
     }
   }
 
-  onOut = () => {
+  onOut = (e) => {
+    if (e.x < this.x + 120 && e.y < this.y + 70) return;
+
     if (this.downOnThis) {
       this.downOnThis = false;
 
@@ -373,7 +382,6 @@ class Button3 extends PIXI.Container {
     this.HIT_AREA.interactive = true;
     this.HIT_AREA.addListener("pointerdown", this.onDown);
     this.HIT_AREA.addListener("pointerup", this.onUp);
-    this.HIT_AREA.addListener("pointerout", this.onOut);
   }
 
   makeSquare(color1, color2) {
@@ -419,7 +427,9 @@ class Button3 extends PIXI.Container {
     }
   }
 
-  onOut = () => {
+  onOut = (e) => {
+    if (e.x > this.x && e.x < this.x + 50 && e.y > this.y && e.y < this.y + 50) return;
+
     if (this.downOnThis) {
       this.downOnThis = false;
 
@@ -431,7 +441,7 @@ class Button3 extends PIXI.Container {
     if (this.state === 1) return;
     if (this.tween) this.tween.stop();
     this.display.y = this.display2.y = 0;
-    this.tween = new JMTween(this, 3000 * (this.value)).to({value: 0}).start().onUpdate(this.updateCircle);
+    this.tween = new JMTween(this, 1000 * (this.value)).to({value: 0}).start().onUpdate(this.updateCircle).onComplete(this.updateCircle);
   }
 
   updateCircle = () => {
