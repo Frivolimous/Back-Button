@@ -6,6 +6,7 @@ const Colors = {
   DBLUE: 0x4E6CC6,
   WHITE: 0xFDFDFD,
   SHADOW: 0,
+  PANEL: 0xf199cc,
 }
 
 let overlay = new PIXI.Graphics();
@@ -39,6 +40,7 @@ function initGame() {
     floor.y = appRect.height - CONFIG.floorHeight;
     overlay.clear().beginFill(0).drawRect(0, 0, appRect.width, appRect.height);
     title.position.set((appRect.width - title.width) / 2, ((appRect.height - CONFIG.floorHeight) - title.height) / 2);
+    button.onResize ?? button.onResize();
   });
 }
 
@@ -50,22 +52,34 @@ let transition = () => {
     switch(style) {
       case 0: default:
         style = 0;
-        button = new Button1(transition);
+        button = new ButtonDouble(transition);
         button.position.set(20, 20);
         app.stage.addChild(button, overlay);
-        title.text = "Button Style 1:\nDouble Tap";
+        title.text = "Button Style 1a:\nDouble Tap - wiggle";
         break;
       case 1:
-        button = new Button2(transition);
+        button = new ButtonDouble(transition, 'pulse');
+        button.position.set(20, 20);
+        app.stage.addChild(button, overlay);
+        title.text = "Button Style 1b:\nDouble Tap - pulse";
+        break;
+      case 2:
+        button = new ButtonSlider(transition);
         button.position.set(20, 20);
         app.stage.addChild(button, overlay);
         title.text = "Button Style 2:\nSlide Over";
         break;
-      case 2:
-        button = new Button3(transition);
+      case 3:
+        button = new ButtonHold(transition);
         button.position.set(20, 20);
         app.stage.addChild(button, overlay);
         title.text = "Button Style 3:\nHold for 3 seconds";
+        break;
+      case 4:
+        button = new ButtonNav(transition);
+        button.position.set(20, 20);
+        app.stage.addChild(button, overlay);
+        title.text = "Button Style 4:\nOpen a 'suggested activities' navbar";
         break;
     }
   })
@@ -75,11 +89,12 @@ let transition = () => {
 let onMoveOut = (e) => {
   let mousePos = e.data.getLocalPosition(app.stage);
   if (button) {
-    button.onOut(mousePos);
+    button.onOut && button.onOut(mousePos);
   }
 }
 
-class Button1 extends PIXI.Container {
+class ButtonDouble extends PIXI.Container {
+  mover;
   display; // graphic that is shown;
   display2;
   shadow;
@@ -89,27 +104,38 @@ class Button1 extends PIXI.Container {
   buttonState = 0;
   tween;
   currentTimeout;
+  wiggle;
+  style
 
-  constructor(onTrigger) {
+  constructor(onTrigger, style) {
     super();
 
     this.onTrigger = onTrigger;
+    this.style = style;
+
+    this.mover = new PIXI.Container();
 
     this.display = this.makeSquare();
     this.shadow = this.makeShadow();
 
     this.display2 = this.makeSquare(Colors.WHITE,Colors.DBLUE);
     this.display2.alpha = 0;
-    this.addChild(this.shadow, this.display, this.display2);
+    this.mover.addChild(this.shadow, this.display, this.display2);
+    this.addChild(this.mover);
 
-    this.display.buttonMode = true;
-    this.display.interactive = true;
-    this.display2.buttonMode = true;
-    this.display2.interactive = true;
-    this.display.addListener("pointerdown", this.onDown);
-    this.display.addListener("pointerup", this.onUp);
-    this.display2.addListener("pointerdown", this.onDown);
-    this.display2.addListener("pointerup", this.onUp);
+    this.mover.position.set(25);
+    this.display.pivot.set(25);
+    this.display2.pivot.set(25);
+    this.shadow.pivot.set(25);
+
+    this.mover.buttonMode = true;
+    this.mover.interactive = true;
+    // this.display2.buttonMode = true;
+    // this.display2.interactive = true;
+    this.mover.addListener("pointerdown", this.onDown);
+    this.mover.addListener("pointerup", this.onUp);
+    // this.display2.addListener("pointerdown", this.onDown);
+    // this.display2.addListener("pointerup", this.onUp);
   }
 
   makeSquare(color1, color2) {
@@ -184,13 +210,31 @@ class Button1 extends PIXI.Container {
   }
 
   startTimer() {
-    this.clearTimer()
+    this.clearTimer();
+
+    if (this.style === 'pulse') {
+      new JMTween(this.mover.scale, 100).to({x: 1.3, y: 1.3}).start()
+      .chain(this.mover.scale, 100).to({x: 1, y: 1})
+      .chain(this.mover.scale, 100).to({x: 1.3, y: 1.3})
+      .chain(this.mover.scale, 100).to({x: 1.1, y: 1.1});
+    } else if (this.style === 'none') {
+      this.mover.scale.set(1.1);
+    } else {
+      new JMTween(this.mover, 100).to({rotation: Math.PI * 0.2}).start()
+      .chain(this.mover, 100).to({rotation: -Math.PI * 0.2})
+      .chain(this.mover, 100).to({rotation: Math.PI * 0.2})
+      .chain(this.mover, 100).to({rotation: -Math.PI * 0.2})
+      .chain(this.mover, 100).to({rotation: 0});
+      this.mover.scale.set(1.1);
+    }
     this.currentTimeout = window.setTimeout(() => {
       if (this.buttonState === 1) {
         this.buttonState = 0;
         if (this.tween) this.tween.stop();
-        this.tween = new JMTween(this.display, 100).to({alpha: 1}).start().onComplete(() => this.tween = null);
+        new JMTween(this.display, 100).to({alpha: 1}).start().onComplete(() => this.tween = null);
         this.tween = new JMTween(this.display2, 100).to({alpha: 0}).start().onComplete(() => this.tween = null);
+        new JMTween(this.mover.scale, 200).to({x: 1, y: 1}).start();
+        // this.mover.scale.set(1);
       }
     }, 3000);
   }
@@ -200,10 +244,14 @@ class Button1 extends PIXI.Container {
       window.clearTimeout(this.currentTimeout);
       this.currentTimeout = null;
     }
+    if (this.wiggle) {
+      this.wiggle.stop();
+      this.wiggle = null;
+    }
   }
 }
 
-class Button2 extends PIXI.Container {
+class ButtonSlider extends PIXI.Container {
   track;
   mover;
   display;
@@ -341,7 +389,7 @@ class Button2 extends PIXI.Container {
   }
 }
 
-class Button3 extends PIXI.Container {
+class ButtonHold extends PIXI.Container {
   mover;
   display;
   display2;
@@ -372,16 +420,24 @@ class Button3 extends PIXI.Container {
     this.mover.addChild(this.shadow, this.display, this.display2);
 
     this.circle = new PIXI.Graphics();
-    this.circle.beginFill(Colors.WHITE, 0.75).drawCircle(0, 0, 50);
-    this.circle.position.set(25, 25);
+    this.circle.beginFill(Colors.WHITE, 0.75).drawRect(0, 0, appRect.width, appRect.height);
+    // this.circle.beginFill(Colors.WHITE, 0.75).drawCircle(0, 0, 50);
+    // this.circle.position.set(25, 25);
     this.circle.visible = false;
 
-    this.addChild(this.circle, this.mover, this.HIT_AREA);
+    app.stage.addChild(this.circle);
+
+    this.addChild(this.mover, this.HIT_AREA);
 
     this.HIT_AREA.buttonMode = true;
     this.HIT_AREA.interactive = true;
     this.HIT_AREA.addListener("pointerdown", this.onDown);
     this.HIT_AREA.addListener("pointerup", this.onUp);
+  }
+
+  destroy() {
+    this.circle.destroy();
+    super.destroy();
   }
 
   makeSquare(color1, color2) {
@@ -452,7 +508,136 @@ class Button3 extends PIXI.Container {
     }
 
     let angle = this.value * Math.PI * 2 - Math.PI / 2;
-    this.circle.clear().beginFill(Colors.WHITE, 0.75).drawCircle(0, 0, 50)
-      .beginFill(Colors.DBLUE, 0.5).moveTo(0, 0).lineTo(0, -50).arc(0, 0, 50, -Math.PI / 2, angle).endFill();
+    // this.circle.clear().beginFill(Colors.WHITE, 0.75).drawCircle(0, 0, 50)
+      // .beginFill(Colors.DBLUE, 0.5).moveTo(0, 0).lineTo(0, -50).arc(0, 0, 50, -Math.PI / 2, angle).endFill();
+    this.circle.clear().beginFill(Colors.WHITE, 0.75).drawRect(0, 0, appRect.width, appRect.height)
+      .beginFill(Colors.WHITE, 0.5).moveTo(appRect.width / 2, appRect.height / 2).lineTo(appRect.width / 2, appRect.height / 2 - appRect.width).arc(appRect.width / 2, appRect.height / 2, appRect.width, -Math.PI / 2, angle).endFill();
+    this.circle.alpha = Math.min(1, this.value * 2)
+    ;
+  }
+}
+
+class ButtonNav extends PIXI.Container {
+  PANEL_WIDTH = 100;
+  PADDING = 10;
+  mover;
+  display; // graphic that is shown;
+
+  panel;
+
+  onTrigger;
+  downOnThis = false;
+  buttonState = 0;
+  tween;
+  currentTimeout;
+  wiggle;
+  style;
+
+  constructor(onTrigger, style) {
+    super();
+
+    this.onTrigger = onTrigger;
+    this.style = style;
+
+    this.panel = this.makePanel();
+
+    this.mover = new PIXI.Graphics();
+
+    this.display = this.makeSquare();
+    // this.display = new PIXI.Graphics();
+    // this.makeArrow(this.display, null, 0, 1.2);
+
+    this.mover.addChild(this.display);
+    this.addChild(this.mover, this.panel);
+
+    this.mover.position.set(25);
+    this.display.pivot.set(25);
+    this.panel.position.set(-this.PANEL_WIDTH - 18, -20);
+    this.display.rotation = Math.PI;
+
+    this.mover.buttonMode = true;
+    this.mover.interactive = true;
+    
+    this.mover.addListener("pointerdown", this.onDown);
+
+    // this.mover.beginFill(Colors.PANEL).lineStyle(2, Colors.WHITE).drawRoundedRect(-70, -45, 100, 80, 5);
+    
+    let cY = 20;
+    let first = true;
+    
+    [0xeeeeee, 0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff].forEach(color => {
+      let graphic = this.makeRect(color);
+      this.panel.addChild(graphic);
+      graphic.position.set(this.PADDING, cY);
+      graphic.buttonMode = true;
+      graphic.interactive = true;
+      graphic.addListener("pointerdown", () => (this.onTrigger && this.onTrigger()));
+      cY += graphic.height + 10;
+      if (first) {
+        first = false;
+        this.panel.endFill().lineStyle(2, Colors.WHITE).moveTo(this.PADDING / 2, cY).lineTo(this.PANEL_WIDTH - this.PADDING / 2, cY);
+        cY += 10;
+        this.makeArrow(graphic, Colors.DBLUE, 10, 1.2);
+      }
+    });
+  }
+
+  makeSquare(color1, color2) {
+    let square = new PIXI.Graphics();
+    square.beginFill(color1 || Colors.DBLUE).lineStyle(3, color2 || Colors.WHITE).drawRoundedRect(0, 0, 50, 50, 8);
+    square.endFill().lineStyle(4, Colors.WHITE)
+      // .moveTo(40, 25)
+      // .lineTo(8, 25)
+      // .moveTo(18, 27)
+      .moveTo(33, 12)
+      .lineTo(20, 25)
+      .lineTo(33, 38);
+    // this.makeArrow(square, color2 || Colors.WHITE);
+    return square;
+  }
+
+  makeShadow() {
+    let square = new PIXI.Graphics();
+    square.beginFill(Colors.SHADOW, 0.25).drawRoundedRect(3, 3, 50, 50, 8);
+    return square;
+  }
+
+  makeArrow(graphic, color, offsetX = 0, scale = 1) {
+    graphic.endFill().lineStyle(4, color || Colors.WHITE)
+      .moveTo(offsetX + 40 * scale, 25 * scale)
+      .lineTo(offsetX + 8 * scale, 25 * scale)
+      .moveTo(offsetX + 10 * scale, 25 * scale)
+      .lineTo(offsetX + 23 * scale, 12 * scale)
+      .moveTo(offsetX + 10 * scale, 25 * scale)
+      .lineTo(offsetX + 23 * scale, 38 * scale);
+  }
+
+  makePanel() {
+    let graphic = new PIXI.Graphics();
+    graphic.beginFill(Colors.PANEL).lineStyle(2, Colors.WHITE)
+      .drawRect(0, 0, this.PANEL_WIDTH, appRect.height);
+
+    return graphic;
+  }
+
+  makeRect(color) {
+    let graphic = new PIXI.Graphics();
+    graphic.beginFill(color)
+      .drawRoundedRect(0, 0, this.PANEL_WIDTH - this.PADDING * 2, (this.PANEL_WIDTH - this.PADDING * 2) * 3/4, 5);
+    
+    return graphic;
+  }
+
+  onDown = () => {
+    if (this.tween) this.tween.stop();
+    if (this.buttonState === 0) {
+      this.tween = new JMTween(this, 150).to({x: this.PANEL_WIDTH + 18}).start().onComplete(() => this.tween = null);
+      new JMTween(this.display, 150).to({rotation: 0}).start();
+      this.buttonState = 1;
+    } else if (this.buttonState === 1) {
+      this.tween = new JMTween(this, 150).to({x: 20}).start().onComplete(() => this.tween = null);
+      new JMTween(this.display, 150).to({rotation: Math.PI}).start();
+      this.buttonState = 0;
+    }
   }
 }
